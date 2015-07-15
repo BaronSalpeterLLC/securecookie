@@ -64,6 +64,24 @@ func New(hashKey, blockKey []byte) *SecureCookie {
 	return s
 }
 
+func NewSecureCookie(maxAge int64, hashKey, blockKey []byte) *SecureCookie {
+	s := &SecureCookie{
+		hashKey:   hashKey,
+		blockKey:  blockKey,
+		hashFunc:  sha256.New,
+		maxAge:    maxAge,
+		maxLength: 4096,
+		sz:        GobEncoder{},
+	}
+	if hashKey == nil {
+		s.err = errHashKeyNotSet
+	}
+	if blockKey != nil {
+		s.BlockFunc(aes.NewCipher)
+	}
+	return s
+}
+
 // SecureCookie encodes and decodes authenticated and optionally encrypted
 // cookie values.
 type SecureCookie struct {
@@ -409,6 +427,21 @@ func CodecsFromPairs(keyPairs ...[]byte) []Codec {
 			blockKey = keyPairs[i+1]
 		}
 		codecs[i/2] = New(keyPairs[i], blockKey)
+	}
+	return codecs
+}
+
+// CodecsFromPairs returns a slice of SecureCookie instances.
+//
+// It is a convenience function to create a list of codecs for key rotation.
+func CodecsFromPairsMaxAge(maxAge int64, keyPairs ...[]byte) []Codec {
+	codecs := make([]Codec, len(keyPairs)/2+len(keyPairs)%2)
+	for i := 0; i < len(keyPairs); i += 2 {
+		var blockKey []byte
+		if i+1 < len(keyPairs) {
+			blockKey = keyPairs[i+1]
+		}
+		codecs[i/2] = NewSecureCookie(maxAge,keyPairs[i], blockKey)
 	}
 	return codecs
 }
